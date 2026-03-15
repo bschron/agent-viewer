@@ -162,8 +162,8 @@ function hasClaudeDescendant(pid, tree) {
     visited.add(current);
 
     const cmd = tree.commands[current] || '';
-    // Match "claude" as a command (not "agent-viewer" or other incidental matches)
-    if (/(?:^|\/)claude\s/.test(cmd) || /(?:^|\/)claude$/.test(cmd)) {
+    // Match "claude" as a command or versioned binary (e.g. .local/share/claude/versions/2.1.76)
+    if (/(?:^|\/)claude(?:\s|$)/.test(cmd) || /claude\/versions\//.test(cmd)) {
       return true;
     }
 
