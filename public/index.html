@@ -400,6 +400,16 @@ header .status-bar .dot {
   color: var(--bg);
 }
 
+.card-actions .btn-resume {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.card-actions .btn-resume:hover {
+  background: var(--amber);
+  color: var(--bg);
+}
+
 /* ─── SPAWN MODAL ───────────────────────────────────────────────────── */
 .modal-overlay {
   display: none;
@@ -1615,13 +1625,15 @@ function renderCard(agent) {
       <div class="card-actions">
         <button class="btn-send" onclick="sendPrompt('${agent.name}')">SEND</button>
         <button onclick="document.getElementById('file-${agent.name}').click()">FILE</button>
-        <button onclick="copyAttach('${agent.name}')">TERMINAL</button>
+        <button onclick="openTerminal('${agent.name}')">TERMINAL</button>
+        <button onclick="copyTmux('${agent.name}')">COPY TMUX</button>
         <button class="btn-stop" onclick="confirmStop('${agent.name}')">STOP</button>
         <button onclick="openOutputViewer('${agent.name}')">VIEW OUTPUT</button>
       </div>`;
   } else {
     actions = `
       <div class="card-actions">
+        <button class="btn-resume" onclick="resumeAgent('${agent.name}')">RESUME</button>
         <button class="btn-send" onclick="sendPrompt('${agent.name}')">RE-SPAWN</button>
         <button onclick="openOutputViewer('${agent.name}')">VIEW OUTPUT</button>
         <button class="btn-clear" onclick="confirmCleanup('${agent.name}')">CLEAR</button>
@@ -1722,6 +1734,24 @@ async function sendPrompt(agentName) {
   }
 }
 
+async function resumeAgent(agentName) {
+  try {
+    const res = await fetch(`/api/agents/${agentName}/resume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      alert('Resume failed: ' + (data.error || 'Unknown error'));
+      return;
+    }
+    fetchAgents();
+  } catch (e) {
+    console.error('Resume error:', e);
+    alert('Resume failed: ' + e.message);
+  }
+}
+
 async function sendKey(agentName, key) {
   try {
     await fetch(`/api/agents/${agentName}/keys`, {
@@ -1764,21 +1794,41 @@ async function uploadFile(agentName, input) {
   input.value = '';
 }
 
-function copyAttach(agentName) {
+async function openTerminal(agentName) {
+  const btns = document.querySelectorAll(`[data-name="${agentName}"] .card-actions button`);
+  let btn;
+  for (const b of btns) {
+    if (b.textContent === 'TERMINAL') { btn = b; break; }
+  }
+  try {
+    const res = await fetch(`/api/agents/${agentName}/terminal`, { method: 'POST' });
+    if (!res.ok) throw new Error((await res.json()).error);
+    if (btn) {
+      btn.textContent = 'OPENED!';
+      btn.style.borderColor = 'var(--green)';
+      btn.style.color = 'var(--green)';
+      setTimeout(() => { btn.textContent = 'TERMINAL'; btn.style.borderColor = ''; btn.style.color = ''; }, 1500);
+    }
+  } catch (e) {
+    if (btn) {
+      btn.textContent = 'FAILED';
+      btn.style.borderColor = 'var(--red)';
+      btn.style.color = 'var(--red)';
+      setTimeout(() => { btn.textContent = 'TERMINAL'; btn.style.borderColor = ''; btn.style.color = ''; }, 2000);
+    }
+  }
+}
+
+function copyTmux(agentName) {
   const cmd = `tmux attach -t ${agentName}`;
   navigator.clipboard.writeText(cmd).then(() => {
-    // Brief visual feedback on the button
     const btns = document.querySelectorAll(`[data-name="${agentName}"] .card-actions button`);
     for (const btn of btns) {
-      if (btn.textContent === 'TERMINAL') {
+      if (btn.textContent === 'COPY TMUX') {
         btn.textContent = 'COPIED!';
         btn.style.borderColor = 'var(--green)';
         btn.style.color = 'var(--green)';
-        setTimeout(() => {
-          btn.textContent = 'TERMINAL';
-          btn.style.borderColor = '';
-          btn.style.color = '';
-        }, 1500);
+        setTimeout(() => { btn.textContent = 'COPY TMUX'; btn.style.borderColor = ''; btn.style.color = ''; }, 1500);
         break;
       }
     }

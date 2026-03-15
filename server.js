@@ -802,6 +802,39 @@ app.post('/api/agents/:name/send', (req, res) => {
   }
 });
 
+// Resume a completed agent using Claude's --continue flag
+app.post('/api/agents/:name/resume', (req, res) => {
+  try {
+    const { name } = req.params;
+    const reg = registry[name];
+
+    if (!reg) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    if (reg.state !== 'completed') {
+      return res.status(400).json({ error: 'Agent is not in completed state' });
+    }
+
+    const projectPath = reg.projectPath || '.';
+    const claudeCmd = 'claude --continue --dangerously-skip-permissions';
+
+    execSync(
+      `tmux new-session -d -s ${name} -c "${projectPath}" '${claudeCmd}'`,
+      { encoding: 'utf-8', timeout: 10000 }
+    );
+
+    reg.state = 'running';
+    delete reg.idleSince;
+    delete reg.completedAt;
+    saveRegistry();
+
+    console.log(`[RESUME] Resumed agent ${name} in ${projectPath}`);
+    res.json({ status: 'resumed' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // File upload - save locally and send path to agent
 const UPLOAD_DIR = path.join(os.tmpdir(), 'agent-viewer-uploads');
 
@@ -934,6 +967,31 @@ app.post('/api/agents/:name/keys', (req, res) => {
     }
 
     res.json({ status: 'sent', key: keys });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Open Ghostty terminal attached to agent's tmux session
+app.post('/api/agents/:name/terminal', async (req, res) => {
+  try {
+    const { name } = req.params;
+    if (!registry[name]) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+    // Verify tmux session exists
+    try {
+      execSync(`tmux has-session -t ${name}`, { timeout: 5000 });
+    } catch {
+      return res.status(400).json({ error: 'Tmux session not found' });
+    }
+    await new Promise((resolve, reject) => {
+      exec(`open -na Ghostty --args -e tmux attach -t ${name}`, { timeout: 10000 }, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    res.json({ status: 'opened' });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

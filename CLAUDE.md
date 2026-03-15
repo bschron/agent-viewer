@@ -48,6 +48,7 @@ Three-column kanban board (Running/Idle/Completed) with SSE-driven updates. Incl
 | POST | `/api/agents` | Spawn new agent |
 | POST | `/api/agents/:name/send` | Send message / respawn |
 | POST | `/api/agents/:name/upload` | Upload file to agent |
+| POST | `/api/agents/:name/terminal` | Open Ghostty terminal attached to session |
 | DELETE | `/api/agents/:name` | Kill agent session |
 | DELETE | `/api/agents/:name/cleanup` | Remove from registry |
 | DELETE | `/api/cleanup/completed` | Bulk cleanup completed |
